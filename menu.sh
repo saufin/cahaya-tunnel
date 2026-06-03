@@ -1,8 +1,7 @@
 #!/bin/bash
-
 # =============================================
-#          CAHAYA TUNNEL
-#     SSH ACCOUNT MANAGEMENT MENU
+# CAHAYA TUNNEL
+# SSH ACCOUNT MANAGEMENT MENU
 # =============================================
 
 PASSWORD_RAHASIA="Askt2021@"
@@ -30,11 +29,6 @@ check_license() {
     fi
     echo -e "${GREEN}[✓] Lisensi valid sampai: $EXPIRED${NC}"
     echo ""
-}
-
-# Fungsi dapatkan daftar user SSH
-get_user_list() {
-    cat /etc/passwd | grep -E ":/home/.*:/bin/false|:/home/.*:/bin/bash" | cut -d: -f1
 }
 
 # Fungsi buat akun baru
@@ -74,33 +68,12 @@ hapus_akun() {
     echo "          HAPUS AKUN SSH"
     echo "========================================"
     
-    user_list=($(get_user_list))
-    if [ ${#user_list[@]} -eq 0 ]; then
-        echo -e "${RED}Tidak ada akun SSH yang tersedia!${NC}"
-        read -p "Tekan Enter untuk kembali..."
-        return
-    fi
-    
     echo -e "${YELLOW}Daftar Akun SSH:${NC}"
     echo "----------------------------------------"
-    for i in "${!user_list[@]}"; do
-        echo "$((i+1)). ${user_list[$i]}"
-    done
+    ls /home/ | cat -n
     echo "----------------------------------------"
-    read -p "Masukkan nomor urut atau username: " input
-    
-    if [[ "$input" =~ ^[0-9]+$ ]]; then
-        if [ "$input" -ge 1 ] && [ "$input" -le "${#user_list[@]}" ]; then
-            username="${user_list[$((input-1))]}"
-        else
-            echo -e "${RED}Nomor tidak valid!${NC}"
-            read -p "Tekan Enter untuk kembali..."
-            return
-        fi
-    else
-        username="$input"
-    fi
-    
+    read -p "Masukkan username yang akan dihapus: " username
+
     if id "$username" &>/dev/null; then
         read -p "Yakin hapus $username? (y/n): " confirm
         if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
@@ -122,43 +95,37 @@ daftar_akun() {
     echo "========================================"
     echo "       DAFTAR SEMUA AKUN SSH"
     echo "========================================"
-    echo -e "${YELLOW}No | Username    | Expired     | Status${NC}"
+    echo -e "${YELLOW}No | Username${NC}"
     echo "----------------------------------------"
-    user_list=($(get_user_list))
-    if [ ${#user_list[@]} -eq 0 ]; then
-        echo "Tidak ada akun SSH."
-    else
-        for i in "${!user_list[@]}"; do
-            user="${user_list[$i]}"
-            expired=$(grep "^$user:" /etc/ssh-expired/users 2>/dev/null | cut -d: -f2)
-            if [[ -z "$expired" ]]; then
-                expired="Tidak terbatas"
-                status="${GREEN}aktif${NC}"
-            else
-                today=$(date +%s)
-                exp_date=$(date -d "$expired" +%s 2>/dev/null)
-                if [[ $today -gt $exp_date ]]; then
-                    status="${RED}expired${NC}"
-                else
-                    status="${GREEN}aktif${NC}"
-                fi
-            fi
-            printf "%-3s | %-10s | %-10s | %b\n" "$((i+1))" "$user" "$expired" "$status"
-        done
-    fi
+    ls /home/ | cat -n
     echo "========================================"
     read -p "Tekan Enter untuk kembali..."
 }
 
-# Fungsi cek user online
-user_online() {
+# Fungsi cek user login dari Dropbear (PALING AKURAT UNTUK HTTP CUSTOM)
+# INI ADALAH MENU 4 YANG BARU
+user_dari_dropbear() {
     clear
     echo "========================================"
-    echo "       USER SSH ONLINE"
+    echo "       USER LOGIN "
     echo "========================================"
-    echo -e "${YELLOW}User      | Login dari${NC}"
+    echo -e "${YELLOW}User yang berhasil login :${NC}"
     echo "----------------------------------------"
-    who | grep -E "\([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\)" | awk '{print $1"      | "$5}' || echo "Tidak ada user online"
+    
+    # Ambil user login dalam 1 menit terakhir
+    journalctl -u dropbear --since "1 minute ago" --no-pager | grep "Password auth succeeded" | awk -F"for '" '{print $2}' | cut -d"'" -f1 | sort -u | while read user; do
+        echo "  - $user"
+    done
+    
+    if [ -z "$(journalctl -u dropbear --since "1 minute ago" --no-pager | grep "Password auth succeeded")" ]; then
+        echo "  Belum ada user login dalam 1 menit terakhir."
+    fi
+    
+    echo ""
+    echo -e "${YELLOW}Detail login terbaru:${NC}"
+    echo "----------------------------------------"
+    journalctl -u dropbear --since "1 minute ago" --no-pager | grep "Password auth succeeded" | tail -5 | awk '{print "  User: " $9 " | IP: " $11 " | Waktu: " $1 " " $2 " " $3}'
+    
     echo "========================================"
     read -p "Tekan Enter untuk kembali..."
 }
@@ -169,22 +136,10 @@ cek_semua() {
     echo "========================================"
     echo "    SEMUA USER & STATUS EXPIRED"
     echo "========================================"
-    echo -e "${YELLOW}Username    | Expired     | Sisa hari${NC}"
-    echo "----------------------------------------"
     if [ ! -f /etc/ssh-expired/users ]; then
         echo "Tidak ada data expired."
     else
-        cat /etc/ssh-expired/users | while IFS=: read user exp; do
-            today=$(date +%s)
-            exp_date=$(date -d "$exp" +%s 2>/dev/null)
-            diff=$(( ($exp_date - $today) / 86400 ))
-            if [[ $diff -lt 0 ]]; then
-                sisa="${RED}expired${NC}"
-            else
-                sisa="${GREEN}$diff hari${NC}"
-            fi
-            printf "%-10s | %-10s | %b\n" "$user" "$exp" "$sisa"
-        done
+        cat /etc/ssh-expired/users
     fi
     echo "========================================"
     read -p "Tekan Enter untuk kembali..."
@@ -196,28 +151,12 @@ ganti_password() {
     echo "========================================"
     echo "     GANTI PASSWORD USER SSH"
     echo "========================================"
-    user_list=($(get_user_list))
-    if [ ${#user_list[@]} -eq 0 ]; then
-        echo -e "${RED}Tidak ada akun SSH!${NC}"
-        read -p "Tekan Enter untuk kembali..."
-        return
-    fi
     echo -e "${YELLOW}Daftar Akun:${NC}"
-    for i in "${!user_list[@]}"; do
-        echo "$((i+1)). ${user_list[$i]}"
-    done
-    read -p "Masukkan nomor urut atau username: " input
-    if [[ "$input" =~ ^[0-9]+$ ]]; then
-        if [ "$input" -ge 1 ] && [ "$input" -le "${#user_list[@]}" ]; then
-            username="${user_list[$((input-1))]}"
-        else
-            echo -e "${RED}Nomor tidak valid!${NC}"
-            read -p "Tekan Enter untuk kembali..."
-            return
-        fi
-    else
-        username="$input"
-    fi
+    echo "----------------------------------------"
+    ls /home/ | cat -n
+    echo "----------------------------------------"
+    read -p "Masukkan username: " username
+
     if id "$username" &>/dev/null; then
         passwd "$username"
         echo -e "${GREEN}[✓] Password berhasil diubah!${NC}"
@@ -225,12 +164,6 @@ ganti_password() {
         echo -e "${RED}[!] Username tidak ditemukan!${NC}"
     fi
     read -p "Tekan Enter untuk kembali..."
-}
-
-# SSH ke root
-ssh_root() {
-    clear
-    su -
 }
 
 # Menu utama
@@ -245,24 +178,22 @@ while true; do
     echo "1. Buat Akun SSH Baru"
     echo "2. Hapus Akun SSH"
     echo "3. Daftar Semua Akun SSH"
-    echo "4. Cek User SSH Online"
+    echo "4. Cek User Login (Dropbear)"
     echo "5. Cek Semua User & Expired"
-    echo "6. SSH ke Server (Root)"
-    echo "7. Ganti Password User SSH"
+    echo "6. Ganti Password User SSH"
     echo "0. Keluar"
     echo "========================================"
     echo -e "   ${YELLOW}NO WA ADMIN : 087758826172${NC}"
     echo "========================================"
-    read -p "Pilih menu [0-7]: " pilihan
+    read -p "Pilih menu [0-6]: " pilihan
 
     case $pilihan in
         1) buat_akun ;;
         2) hapus_akun ;;
         3) daftar_akun ;;
-        4) user_online ;;
+        4) user_dari_dropbear ;;
         5) cek_semua ;;
-        6) ssh_root ;;
-        7) ganti_password ;;
+        6) ganti_password ;;
         0) echo -e "${GREEN}Terima kasih telah menggunakan CAHAYA TUNNEL!${NC}"; exit 0 ;;
         *) echo -e "${RED}Pilihan salah!${NC}"; sleep 1 ;;
     esac
