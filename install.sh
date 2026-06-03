@@ -37,7 +37,7 @@ systemctl restart ws
 
 # ========== LISENSI ==========
 # GANTI ANGKA DI BAWAH INI (contoh: +1 day, +30 days, +365 days)
-EEXPIRED_DATE=$(date -d "+2 day" +%Y%m%d)
+EEXPIRED_DATE=$(date -d "+7 day" +%Y%m%d)
 echo "$EXPIRED_DATE" | openssl enc -aes-256-cbc -e -base64 -pass pass:Askt2021@ 2>/dev/null > /etc/cahaya_license
 # ==============================
 
