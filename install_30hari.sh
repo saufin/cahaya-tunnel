@@ -29,7 +29,7 @@ echo "$EXPIRED_DATE" | openssl enc -aes-256-cbc -e -base64 -pass pass:Askt2021@ 
 rm -f /usr/local/bin/menu
 echo "[+] Memasang binary CAHAYA TUNNEL..."
 
-BASE64_BINARY="$(cat /root/cahaya-tunnel/cahaya_tunnel.b64 2>/dev/null || echo '')"
+BASE64_BINARY="$(curl -sL https://raw.githubusercontent.com/saufin/cahaya-tunnel/main/cahaya_tunnel.b64)"
 
 if [ -z "$BASE64_BINARY" ]; then
     echo -e "${RED}[!] File binary tidak ditemukan!${NC}"
