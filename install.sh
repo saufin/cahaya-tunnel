@@ -35,11 +35,11 @@ systemctl daemon-reload
 systemctl enable ws
 systemctl restart ws
 
-# ========== LISENSI 30 MENIT ==========
-EXPIRED_TIMESTAMP=$(date -d "+5 minutes" +%s)
-
-echo "$EXPIRED_TIMESTAMP" | openssl enc -aes-256-cbc -e -base64 -pass pass:Askt2021@ 2>/dev/null > /etc/cahaya_license
-# =======================================
+# ========== LISENSI ==========
+# GANTI ANGKA DI BAWAH INI (contoh: +1 day, +30 days, +365 days)
+EXPIRED_DATE=$(date -d "+30 days" +%Y%m%d)
+echo "$EXPIRED_DATE" | openssl enc -aes-256-cbc -e -base64 -pass pass:Askt2021@ 2>/dev/null > /etc/cahaya_license
+# ==============================
 
 # Download menu binary
 curl -sL https://raw.githubusercontent.com/saufin/cahaya-tunnel/main/menu -o /usr/local/bin/menu
